@@ -1,0 +1,6 @@
+* regex module
+  * support fixed character classes
+  * support excaped characters
+  * support custom character classes
+  * add macros to simplify testing
+  * add more tests
