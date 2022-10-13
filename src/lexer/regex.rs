@@ -48,7 +48,14 @@ impl Regex {
                     ')' | '|' | '?' | '*' | '+' => {
                         return Err(RegexError::Unknown); // unexpected char
                     }
-                    _ => Self::Character(CharacterClass::Any),
+                    '\\' => {
+                        match char_indices.next() {
+                            Some((_j, char)) => Self::Character(CharacterClass::Singleton(char)),
+                            None => return Err(RegexError::Empty),
+                        }
+                    }
+                    '.' => Self::Character(CharacterClass::Any),
+                    _ => Self::Character(CharacterClass::Singleton(char)),
                 }
             }
             None => {
@@ -99,8 +106,19 @@ impl Regex {
                 '+' => {
                     parsed = parsed.wrap_rightmost(Self::OneOrMany);
                 }
-                _ => {
+                '\\' => {
+                    match char_indices.next() {
+                        Some((_j, char)) => {
+                            parsed = Self::Concat(Box::new(parsed), Box::new(Self::Character(CharacterClass::Singleton(char))));
+                        }
+                        None => return Err(RegexError::Empty),
+                    }
+                }
+                '.' => {
                     parsed = Self::Concat(Box::new(parsed), Box::new(Self::Character(CharacterClass::Any)));
+                }
+                _ => {
+                    parsed = Self::Concat(Box::new(parsed), Box::new(Self::Character(CharacterClass::Singleton(char))));
                 }
             }
         }
