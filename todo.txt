@@ -1,6 +1,9 @@
 * regex module
-  * support fixed character classes
-  * support excaped characters
+  * support fixed character classes (done)
+  * support excaped characters (done)
   * support custom character classes
-  * add macros to simplify testing
+  * support unicode character classes
+  * add macros to simplify testing (abandoned, use Display trait instead)
   * add more tests
+  * report error position
+  * add helpful error messages

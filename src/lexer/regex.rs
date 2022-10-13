@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, fmt::Display};
 
 use thiserror::Error;
 
@@ -14,6 +14,18 @@ enum RegexError {
 enum CharacterClass {
     Any,
     Singleton(char),
+}
+
+impl Display for CharacterClass {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CharacterClass::Any => write!(f, "."),
+            CharacterClass::Singleton(char) => match char {
+                '(' | ')' | '|' | '?' | '*' | '+' | '.' | '\\' => write!(f, "\\{char}"),
+                _ => write!(f, "{char}"),
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -143,57 +155,78 @@ impl FromStr for Regex {
     }
 }
 
+impl Display for Regex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Character(character_class) => write!(f, "{character_class}"),
+            Self::Alternative(a, b) => write!(f, "{a}|{b}"),
+            Self::Concat(a, b) => write!(f, "{a}{b}"),
+            Self::ZeroOrOne(r) => write!(f, "{r}?"),
+            Self::ZeroOrMany(r) => write!(f, "{r}*"),
+            Self::OneOrMany(r) => write!(f, "{r}+"),
+            Self::Group(r) => write!(f, "({r})"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn long_alternative() {
-        let regex = "aa|bb".parse::<Regex>().unwrap();
+        let repr = "aa|bb";
+        let regex = repr.parse::<Regex>().unwrap();
         dbg!(&regex);
-        assert!(matches!(regex, Regex::Alternative(_, _)));
-        if let Regex::Alternative(aa, bb) = regex {
-            assert!(matches!(*aa, Regex::Concat(_, _)));
-            if let Regex::Concat(a1, a2) = *aa {
-                assert!(matches!(*a1, Regex::Character(CharacterClass::Any)));
-                assert!(matches!(*a2, Regex::Character(CharacterClass::Any)));
-            }
-
-            assert!(matches!(*bb, Regex::Concat(_, _)));
-            if let Regex::Concat(b1, b2) = *bb {
-                assert!(matches!(*b1, Regex::Character(CharacterClass::Any)));
-                assert!(matches!(*b2, Regex::Character(CharacterClass::Any)));
-            }
-        }
+        assert_eq!(format!("{regex}"), repr);
     }
 
     #[test]
     fn chained_alternative() {
-        let regex = "a|b|c".parse::<Regex>().unwrap();
+        let repr = "a|b|c";
+        let regex = repr.parse::<Regex>().unwrap();
         dbg!(&regex);
+        assert_eq!(format!("{regex}"), repr);
     }
 
     #[test]
     fn nested_alternative() {
-        let regex = "a(a|b)b".parse::<Regex>().unwrap();
+        let repr = "a(a|b)b";
+        let regex = repr.parse::<Regex>().unwrap();
         dbg!(&regex);
+        assert_eq!(format!("{regex}"), repr);
     } 
 
     #[test]
     fn nested_alternative2() {
-        let regex = "(a|b)".parse::<Regex>().unwrap();
+        let repr = "(a|b)";
+        let regex = repr.parse::<Regex>().unwrap();
         dbg!(&regex);
+        assert_eq!(format!("{regex}"), repr);
     } 
 
     #[test]
     fn repetition_precedence() {
-        let regex = "a|b|c*".parse::<Regex>().unwrap();
+        let repr = "a|b|c*";
+        let regex = repr.parse::<Regex>().unwrap();
         dbg!(&regex);
+        assert_eq!(format!("{regex}"), repr);
     } 
 
     #[test]
     fn group_precedence() {
-        let regex = "(a|b|c)*".parse::<Regex>().unwrap();
+        let repr = "(a|b|c)*";
+        let regex = repr.parse::<Regex>().unwrap();
         dbg!(&regex);
+        assert_eq!(format!("{regex}"), repr);
     } 
+
+    #[test]
+    fn escaped_alternative() {
+        let repr = "a\\|b";
+        let regex = repr.parse::<Regex>().unwrap();
+        dbg!(&regex);
+        assert_eq!(format!("{regex}"), repr);
+    } 
+
 }
