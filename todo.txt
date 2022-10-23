@@ -2,8 +2,8 @@
   * support fixed character classes (done)
   * support excaped characters (done)
   * support custom character classes
-  * support unicode character classes
+  * support unicode character classes (later)
   * add macros to simplify testing (abandoned, use Display trait instead)
   * add more tests
-  * report error position
+  * report error position (done)
   * add helpful error messages
