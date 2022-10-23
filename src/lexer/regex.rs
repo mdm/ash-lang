@@ -47,27 +47,22 @@ enum Regex {
 
 impl Regex {
     fn parse(s: &str, start: usize) -> Result<(Self, usize), RegexError> {
-        if s.len() < start {
+        if start >= s.len() {
             return Err(RegexError::UnexpectedEnd)
         }
 
-        let mut char_indices = s[start..].char_indices().peekable(); // TODO: avoid peeking by skipping at start of parse()
+        let mut char_indices = s[start..].char_indices();
 
         let mut parsed = match char_indices.next() {
             Some((i, char)) => {
                 match char {
                     '(' => {
-                        match char_indices.peek() {
-                            Some((j, _next)) => {
-                                let (parse_result, next_pos) = Regex::parse(s, start + *j)?;
-                                char_indices = s[next_pos..].char_indices().peekable();
-                                if char_indices.next().is_none() {
-                                    return Err(RegexError::UnexpectedEnd)
-                                }
-                                Self::Group(Box::new(parse_result))
-                            }
-                            None => return Err(RegexError::UnexpectedEnd),
+                        let (parse_result, next_pos) = Regex::parse(s, start + i + '('.len_utf8())?;
+                        char_indices = s[next_pos..].char_indices();
+                        if char_indices.next().is_none() {
+                            return Err(RegexError::UnexpectedEnd)
                         }
+                        Self::Group(Box::new(parse_result))
                     }
                     ')' | '|' | '?' | '*' | '+' | ']' => {
                         return Err(RegexError::UnexpectedCharacter(start + i));
@@ -93,17 +88,12 @@ impl Regex {
         while let Some((i, char)) = char_indices.next() {
             match char {
                 '(' => {
-                    match char_indices.peek() {
-                        Some((j, _next)) => {
-                            let (parse_result, next_pos) = Regex::parse(s, start + *j)?;
-                            char_indices = s[next_pos..].char_indices().peekable();
-                            if char_indices.next().is_none() {
-                                return Err(RegexError::UnexpectedEnd)
-                            }
-                            parsed = Self::Concat(Box::new(parsed), Box::new(Self::Group(Box::new(parse_result))));
-                        }
-                        None => return Err(RegexError::UnexpectedEnd),
+                    let (parse_result, next_pos) = Regex::parse(s, start + i + '('.len_utf8())?;
+                    char_indices = s[next_pos..].char_indices();
+                    if char_indices.next().is_none() {
+                        return Err(RegexError::UnexpectedEnd)
                     }
+                    parsed = Self::Concat(Box::new(parsed), Box::new(Self::Group(Box::new(parse_result))));
                 }
                 ')' => {
                     if start == 0 {
@@ -114,16 +104,11 @@ impl Regex {
                     }
                 },
                 '|' => {
-                    match char_indices.peek() {
-                        Some((j, _next)) => {
-                            let (parse_result, next_pos) = Regex::parse(s, start + *j)?;
-                            char_indices = s[next_pos..].char_indices().peekable();
-                            parsed = Self::Alternative(Box::new(parsed), Box::new(parse_result));
-                            if let Some((_k, ')')) = char_indices.next() {
-                                return Ok((parsed, next_pos));
-                            }
-                        }
-                        None => return Err(RegexError::UnexpectedEnd),
+                    let (parse_result, next_pos) = Regex::parse(s, start + i + '|'.len_utf8())?;
+                    char_indices = s[next_pos..].char_indices();
+                    parsed = Self::Alternative(Box::new(parsed), Box::new(parse_result));
+                    if let Some((_j, ')')) = char_indices.next() {
+                        return Ok((parsed, next_pos));
                     }
                 },
                 '?' => {
@@ -258,8 +243,16 @@ mod tests {
     }
 
     #[test]
-    fn missing_closing_parenthesis() {
+    fn missing_closing_parenthesis1() {
         let repr = "a|(b";
+        let result = repr.parse::<Regex>();
+        dbg!(&result);
+        assert!(matches!(result, Err(RegexError::UnexpectedEnd)));
+    }
+
+    #[test]
+    fn missing_closing_parenthesis2() {
+        let repr = "ab(";
         let result = repr.parse::<Regex>();
         dbg!(&result);
         assert!(matches!(result, Err(RegexError::UnexpectedEnd)));
