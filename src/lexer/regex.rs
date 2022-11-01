@@ -14,11 +14,48 @@ enum RegexError {
 enum CharacterClass {
     Any,
     Singleton(char),
+    Range(char, char),
+    Custom(bool, Vec<CharacterClass>),
 }
 
 impl CharacterClass {
-    fn parse(s: &str) -> Result<(Self, usize), RegexError> {    
-        todo!()
+    fn parse(s: &str, start: usize) -> Result<(Self, usize), RegexError> {    
+        let mut char_indices = s[start..].char_indices().peekable();
+
+        let invert = match char_indices.peek() {
+            Some((_, '^')) => {
+                char_indices.next();
+                true
+            }
+            _ => false,
+        };
+
+        let mut elements = Vec::new();
+        while let Some((i, char)) = char_indices.next() {
+            match char {
+                '\\' => {
+                    match char_indices.next() {
+                        Some((_j, char)) => elements.push(CharacterClass::Singleton(char)),
+                        None => return Err(RegexError::UnexpectedEnd),
+                    }
+                }
+                ']' => return Ok((CharacterClass::Custom(invert, elements), start + i + ']'.len_utf8())),
+                _ => {
+                    match char_indices.peek() {
+                        Some((_, '-')) => {
+                            char_indices.next();
+                            match char_indices.next() {
+                                Some((_, end)) => elements.push(CharacterClass::Range(char, end)),
+                                None => return Err(RegexError::UnexpectedEnd),
+                            }
+                        }
+                        _ => elements.push(CharacterClass::Singleton(char)),
+                    }
+                }
+            }
+        }
+
+        Err(RegexError::UnexpectedEnd)
     }
 }
 
@@ -29,6 +66,20 @@ impl Display for CharacterClass {
             CharacterClass::Singleton(char) => match char {
                 '(' | ')' | '|' | '?' | '*' | '+' | '.' | '\\' => write!(f, "\\{char}"),
                 _ => write!(f, "{char}"),
+            }
+            CharacterClass::Range(start, end) => write!(f, "{start}-{end}"),
+            CharacterClass::Custom(invert, elements) => {
+                write!(f, "[")?;
+
+                if *invert {
+                    write!(f, "^")?;
+                }
+
+                for element in elements {
+                    write!(f, "{element}")?;
+                }
+
+                write!(f, "]")
             }
         }
     }
@@ -75,7 +126,9 @@ impl Regex {
                     }
                     '.' => Self::Character(CharacterClass::Any),
                     '[' => {
-                        todo!() // parse character class
+                        let (character_class, next_pos) = CharacterClass::parse(s, start + i + '['.len_utf8())?;
+                        char_indices = s[next_pos..].char_indices();
+                        Self::Character(character_class)
                     }
                     _ => Self::Character(CharacterClass::Singleton(char)),
                 }
@@ -132,7 +185,9 @@ impl Regex {
                     parsed = Self::Concat(Box::new(parsed), Box::new(Self::Character(CharacterClass::Any)));
                 }
                 '[' => {
-                    todo!() // parse character class
+                    let (character_class, next_pos) = CharacterClass::parse(s, start + i + '['.len_utf8())?;
+                    char_indices = s[next_pos..].char_indices();
+                    parsed = Self::Concat(Box::new(parsed), Box::new(Self::Character(character_class)));
                 }
                 _ => {
                     parsed = Self::Concat(Box::new(parsed), Box::new(Self::Character(CharacterClass::Singleton(char))));
