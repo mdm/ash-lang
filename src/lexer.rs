@@ -16,7 +16,7 @@ struct DottedItem {
 }
 
 struct TransitionTable {
-    base: Vec<usize>, // TODO: do we need HasshMaps here if we want to support arbitrary Unicode chars?
+    base: Vec<usize>, // TODO: do we need HashMaps here if we want to support arbitrary Unicode chars?
     next: Vec<usize>,
     check: Vec<usize>,
     default: Vec<usize>,
